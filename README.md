@@ -1,3 +1,7 @@
+This fork of exllamav2 implements the minimum necessary changes to allow for pre-compiling the CUDA kernels.  
+Support for JIT compiling is still maintained and can be opted into during install by setting the `EXLLAMA_NOCOMPILE` env var.
+
+----
 # ExLlamaV2
 
 This is a very initial release of ExLlamaV2, an inference library for running local LLMs on modern consumer GPUs.
