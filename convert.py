@@ -6,6 +6,7 @@ from conversion.tokenize import tokenize
 from conversion.quantize import embeddings, measure_quant, quant
 from conversion.optimize import optimize
 from conversion.compile import compile_model
+from conversion.qparams import qparams_headoptions
 
 # import tracemalloc
 # tracemalloc.start()
@@ -16,14 +17,39 @@ parser.add_argument("-o", "--out_dir", type = str, help = "Output directory")
 parser.add_argument("-c", "--cal_dataset", type = str, help = "Calibration dataset (.parquet file)", default = "")
 parser.add_argument("-r", "--dataset_rows", type = int, default = 100, help = "Number of rows to apply from dataset")
 parser.add_argument("-mr", "--measurement_rows", type = int, default = 16, help = "Number of rows to apply from dataset when measuring")
-parser.add_argument("-gr", "--gpu_rows", type = int, default = 16, help = "Threshold for paging hidden state to CPU")
+parser.add_argument("-gr", "--gpu_rows", type = int, default = 0, help = "Threshold for paging hidden state to CPU")
 parser.add_argument("-l", "--length", type = int, default = 2048, help = "Max no. tokens per sample")
 parser.add_argument("-ml", "--measurement_length", type = int, default = 2048, help = "Max no. tokens per sample when measuring")
 parser.add_argument("-b", "--bits", type = float, default = 4.156, help = "Target bits per weight")
 parser.add_argument("-hb", "--head_bits", type = int, default = 6, help = "Target bits per weight (head layer)")
 parser.add_argument("-m", "--measurement", type = str, help = "Reuse previous measurement")
+parser.add_argument("-ss", "--shard_size", type = str, help = "Max shard size in MB (default: 8192)", default = 8192)
 
 args = parser.parse_args()
+
+# Check some args
+
+if not args.in_dir:
+    print(" ## Please specify input model directory (-i, --in_dir)")
+    sys.exit()
+
+if not args.out_dir:
+    print(" ## Please specify output/working directory (-o, --out_dir)")
+    sys.exit()
+
+if not args.cal_dataset:
+    print(" ## Please specify dataset Parquet file (-c, --cal_dataset)")
+    sys.exit()
+
+if args.length > 2048 or args.measurement_length > 2048:
+    print(" !! Warning: calibration rows > 2048 tokens may result in excessive VRAM use")
+
+if not args.head_bits in qparams_headoptions:
+    print(f" ## Error: {args.head_bits} is not a supported option for head layer bitrate")
+    sys.exit()
+
+if args.bits < 2 or args.bits > 8:
+    print(f" !! Warning: target bitrate {args.bits} will likely not be attainable")
 
 # Arguments
 
@@ -38,6 +64,7 @@ measurement_length = args.measurement_length
 bits = args.bits
 head_bits = args.head_bits
 reuse_measurement = args.measurement
+shard_size = args.shard_size if args.shard_size > 0 else 1024 ** 3  # 1 PB = unlimited
 
 if not os.path.exists(out_dir):
     print(f" ## Error: Directory not found: {out_dir}")
@@ -91,6 +118,7 @@ if not os.path.exists(job_file):
             "bits": bits,
             "head_bits": head_bits,
             "progress": "begin",
+            "shard_size": shard_size
             }
 
     if reuse_measurement is not None:
@@ -119,6 +147,8 @@ else:
         print(" ** Error: Corrupted job")
         sys.exit()
 
+    if "shard_size" not in job: job["shard_size"] = shard_size
+
     job["out_dir"] = out_dir
 
 # Feedback
@@ -127,6 +157,7 @@ print(f" -- Input: {job['in_dir']}")
 print(f" -- Output: {out_dir}")
 print(f" -- Calibration dataset: {job['cal_dataset']}, {job['dataset_rows']} / {job['measurement_rows']} ({job['gpu_rows']}) rows, {job['length']} tokens per sample")
 print(f" -- Target bits per weight: {job['bits']} (decoder), {job['head_bits']} (head)")
+print(f" -- Max shard size: {job['shard_size']} MB")
 
 # Make sure subfolders exist
 
