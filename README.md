@@ -1,6 +1,9 @@
 This fork of exllamav2 implements the minimum necessary changes to allow for pre-compiling the CUDA kernels.  
 Support for JIT compiling is still maintained and can be opted into during install by setting the `EXLLAMA_NOCOMPILE` env var.
 
+> [!NOTE]  
+> This fork has been merged into the [main exllamav2 repo](https://github.com/turboderp/exllamav2) and wheels are available in [releases](https://github.com/turboderp/exllamav2/releases/latest).
+
 ----
 # ExLlamaV2
 
